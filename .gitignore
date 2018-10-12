@@ -23,6 +23,7 @@ gen### Symfony template
 !var/cache/.gitkeep
 !var/logs/.gitkeep
 !var/sessions/.gitkeep
+/cache/
 
 # Parameters
 /app/config/parameters.yml
