@@ -1,0 +1,6 @@
+framework:
+    secret: lovinit
+    templating:
+        engines: ['twig']
+    profiler:
+        only_exceptions: false

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Created by PhpStorm.
  * User: bert
@@ -6,16 +7,18 @@
  * Time: 23:08
  */
 
+use Doctrine\Common\Annotations\AnnotationRegistry;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Bundle\TwigBundle\TwigBundle;
+use Symfony\Bundle\WebProfilerBundle\WebProfilerBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\RouteCollectionBuilder;
 
-require __DIR__ . '/vendor/autoload.php';
+$loader = require __DIR__ . '/../vendor/autoload.php';
+AnnotationRegistry::registerLoader([$loader, 'loadClass']);
 
 class AppKernel extends Kernel{
 
@@ -28,9 +31,16 @@ class AppKernel extends Kernel{
      */
     public function registerBundles()
     {
-        return [
+        $bundles = [
             new FrameworkBundle(),
+            new TwigBundle()
         ];
+
+        if ($this->getEnvironment() == 'dev'){
+            $bundles[] = new WebProfilerBundle();
+        }
+
+        return $bundles;
     }
 
     /**
@@ -43,8 +53,15 @@ class AppKernel extends Kernel{
      */
     protected function configureRoutes(RouteCollectionBuilder $routes)
     {
-        // By using kernel:randomAction, we point to this Class as the controller
-        $routes->add('/random/{limit}', 'kernel:randomAction', 'random-with-limit');
+
+        // import the WebProfilerRoutes, only if the bundle is enabled
+        if (isset($this->bundles['WebProfilerBundle'])) {
+            $routes->import('@WebProfilerBundle/Resources/config/routing/wdt.xml', '/_wdt');
+            $routes->import('@WebProfilerBundle/Resources/config/routing/profiler.xml', '/_profiler');
+        }
+
+        // load the annotation routes
+        $routes->import(__DIR__ . '/../src/App/Controller/', '/', 'annotation');
     }
 
     /**
@@ -69,19 +86,29 @@ class AppKernel extends Kernel{
      */
     protected function configureContainer(ContainerBuilder $c, LoaderInterface $loader)
     {
-        $c->loadFromExtension('framework', [
-            'secret' => "micr0"
-        ]);
+        $loader->load(__DIR__ . '/config/config.yml');
+
+        if (isset($this->bundles['WebProfilerBundle'])){
+            $c->loadFromExtension('web_profiler', [
+                'toolbar' => true,
+                'intercept_redirects' => false,
+            ]);
+        }
     }
 
-    // The action referenced in $this->>configureRoutes()
-    public function randomAction($limit){
-        return new JsonResponse(['number' => rand(0, $limit)]);
+    /**
+     * @inheritdoc
+     */
+    public function getCacheDir()
+    {
+        return __DIR__ . '/../cache/' . $this->getEnvironment();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getLogDir()
+    {
+        return __DIR__ . '/../var/logs';
     }
 }
-
-$kernel = new AppKernel('dev', true);
-$request = Request::createFromGlobals();
-$response = $kernel->handle($request);
-$response->send();
-$kernel->terminate($request, $response);
